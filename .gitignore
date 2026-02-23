@@ -1,0 +1,12 @@
+conversations.json
+security_report_final.json
+security_report.pdf
+*.pyc
+__pycache__/
+.DS_Store
+.vscode/
+.idea/
+*.tmp
+*.log
+outputs/
+.env
