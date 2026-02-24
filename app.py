@@ -19,6 +19,7 @@ import plotly.graph_objects as go
 logger = logging.getLogger(__name__)
 
 from chatgpt_export import ChatGPTExportParser
+from claude_export import ClaudeExportParser, detect_format
 from prompt_injection import PromptInjectionDetector
 from pii_detector import PIIDetector
 from anomaly_detector import ConversationAnomalyDetector
@@ -93,8 +94,15 @@ def run_pipeline(file_path, progress=gr.Progress()):
     """Execute the full 6-module analysis pipeline.
     Returns (report_dict, title_map).
     """
-    progress(0.05, desc="Parsing conversations.json ...")
-    parser = ChatGPTExportParser(file_path)
+    progress(0.05, desc="Detecting export format ...")
+    fmt = detect_format(file_path)
+    if fmt == "claude":
+        progress(0.08, desc="Parsing Claude conversations.json ...")
+        parser = ClaudeExportParser(file_path)
+    else:
+        # Default to ChatGPT parser (also handles 'unknown' gracefully)
+        progress(0.08, desc="Parsing ChatGPT conversations.json ...")
+        parser = ChatGPTExportParser(file_path)
     conversations = parser.parse()
     tmap = {
         c.id: (getattr(c, "title", None) or c.id[:16])
@@ -683,9 +691,9 @@ def analyze(file, progress=gr.Progress()):
         efig = go.Figure()
         err = (f"### ❌ Analysis Failed\n\n**Error:** `{e}`\n\n"
                "**How to fix:** Make sure you uploaded a valid "
-               "`conversations.json` from ChatGPT's data export.\n\n"
-               "Go to **ChatGPT → Settings → Data Controls → Export Data** "
-               "→ download the ZIP → extract `conversations.json`.")
+               "`conversations.json` — either from **ChatGPT** or **Claude** data export.\n\n"
+               "- **ChatGPT:** Settings → Data Controls → Export Data → extract `conversations.json`\n"
+               "- **Claude:** claude.ai → Settings → Privacy → Export Data → extract `conversations.json`")
         return (err, efig, edf, "",
                 err, efig, edf,
                 err, edf, err, edf, err, edf,
@@ -837,6 +845,13 @@ EMPTY_STATE_MD = """
 <li>Download the ZIP → extract <code>conversations.json</code></li>
 <li>Upload it above and click <strong>Analyze My Data</strong></li>
 </ol>
+<h3 style="margin-top:1rem;">How to get your Claude data</h3>
+<ol>
+<li>Open <a href="https://claude.ai" target="_blank">claude.ai</a> → <strong>Settings</strong> → <strong>Privacy</strong></li>
+<li>Click <strong>Export Data</strong> → confirm via email</li>
+<li>Download the ZIP → extract <code>conversations.json</code></li>
+<li>Upload it above and click <strong>Analyze My Data</strong></li>
+</ol>
 <p style="margin-top:0.8rem;color:#4338ca;font-size:0.95rem;">
 <strong>Want to try it first?</strong> Download the <code>example_conversations.json</code> from the Files tab to see a demo with planted security issues.
 </p>
@@ -864,11 +879,12 @@ theme = gr.themes.Soft(
     button_primary_text_color="white",
 )
 
-with gr.Blocks(theme=theme, css=CUSTOM_CSS, title="AI Security Analyzer") as demo:
+with gr.Blocks(title="AI Security Analyzer") as demo:
     gr.HTML(
         '<div class="main-header">'
         "<h1>🛡️ AI Security Analyzer</h1>"
-        "<p>Upload your ChatGPT export and discover what's hiding in your conversations — "
+        "<p>Upload your <strong>ChatGPT</strong> or <strong>Claude</strong> export and discover "
+        "what's hiding in your conversations — "
         "prompt injections, exposed passwords, PII leaks, manipulation patterns, and more.</p>"
         '<div class="badge-row">'
         '<img src="https://img.shields.io/badge/OWASP-Top_10_LLM_2025-4338ca" alt="OWASP">'
@@ -888,7 +904,7 @@ with gr.Blocks(theme=theme, css=CUSTOM_CSS, title="AI Security Analyzer") as dem
 
     with gr.Row():
         file_input = gr.File(
-            label="📄 Upload conversations.json",
+            label="📄 Upload conversations.json (ChatGPT or Claude export)",
             file_types=[".json"],
             type="filepath",
             elem_classes=["upload-area"],
@@ -924,7 +940,6 @@ with gr.Blocks(theme=theme, css=CUSTOM_CSS, title="AI Security Analyzer") as dem
                 label="Copy this into ChatGPT → Settings → Custom Instructions",
                 lines=20,
                 interactive=False,
-                show_copy_button=True,
             )
 
         with gr.Tab("🔓 Prompt Injection"):
@@ -994,4 +1009,6 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=7865,
         ssr_mode=False,
+        theme=theme,
+        css=CUSTOM_CSS,
     )

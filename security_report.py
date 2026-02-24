@@ -121,18 +121,28 @@ class ReportGenerator:
         high = all_severities.count("HIGH")
         medium = all_severities.count("MEDIUM")
         low = all_severities.count("LOW")
-        
-        # Log-scaled scoring: each additional finding of the same severity has
-        # diminishing impact, preventing a single category from saturating the score.
-        
+
+        # Compute message count here so we can normalize MEDIUM/LOW below.
+        total_msgs_for_score = max(sum(len(c.messages) for c in conversations), 1)
+        # Normalize to "findings per 100 messages" so a large export with many
+        # statistical anomalies doesn't auto-inflate to CRITICAL.
+        # CRITICAL & HIGH always count absolutely — a credential exposure is serious
+        # regardless of dataset size. MEDIUM & LOW are rate-based.
+        per_100 = max(total_msgs_for_score / 100.0, 1.0)
         raw = (
             critical * self.SEVERITY_WEIGHTS["CRITICAL"] +
-            high * self.SEVERITY_WEIGHTS["HIGH"] +
-            medium * self.SEVERITY_WEIGHTS["MEDIUM"] +
-            low * self.SEVERITY_WEIGHTS["LOW"]
+            high    * self.SEVERITY_WEIGHTS["HIGH"] +
+            (medium / per_100) * self.SEVERITY_WEIGHTS["MEDIUM"] +
+            (low    / per_100) * self.SEVERITY_WEIGHTS["LOW"]
         )
         # Apply soft-cap via logarithm so score is always meaningful
         risk_score = round(min(100.0 * (1 - math.exp(-raw / 80.0)), 100.0), 1)
+        # Minimum score guarantees: ensure real credential/injection findings
+        # always register as at least HIGH even in very large datasets.
+        if critical > 0:
+            risk_score = max(risk_score, 35.0)
+        if critical >= 3 or (critical > 0 and high >= 2):
+            risk_score = max(risk_score, 65.0)
 
         if risk_score >= self.RISK_THRESHOLDS["CRITICAL"]:
             risk_level = "CRITICAL"

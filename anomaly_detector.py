@@ -136,7 +136,7 @@ class ConversationAnomalyDetector:
                     message_id=msg.id,
                     conversation_id=conv_id,
                     anomaly_type="message_length",
-                    severity="MEDIUM",
+                    severity="LOW",   # statistical outlier only — not a security threat
                     confidence=min(abs(zscore) / 6.0, 1.0),
                     details=f"Message is {direction} (z-score: {zscore:.2f}, length: {length}, avg: {mean_len:.0f})",
                     metric_value=zscore,

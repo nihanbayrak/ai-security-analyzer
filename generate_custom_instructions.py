@@ -501,6 +501,8 @@ def analyse(df_msg: pd.DataFrame, df_ses: Optional[pd.DataFrame]) -> dict:
         "domain_counts":    domain_counts,
         "ai_sub_counts":    dict(ai_sub),
         "top_phrases_ai":   top_n_phrases(ai_df["text"], n=20),
+        # Fallback phrases from ALL user messages — used when ai_ml_llm msgs are scarce
+        "top_phrases_all":  top_n_phrases(user_df["text"], n=20),
         "tone":             tone,
         "avg_len_all":      avg_len_all,
         "avg_len_ai":       avg_len_ai,
@@ -745,12 +747,18 @@ def build_custom_instruction(stats: dict) -> str:
     }
     sub_line = sub_focus_map.get(dominant, "I work across multiple AI/ML domains.")
 
-    top_phrases = [p for p, _ in stats["top_phrases_ai"][:8]
-                   if p.isascii()]  # keep only clean ASCII phrases
+    top_phrases = [p for p, _ in stats["top_phrases_ai"][:8] if p.isascii()]
+    if not top_phrases:
+        # Fall back to phrases from all domains (coding, general, etc.)
+        top_phrases = [p for p, _ in stats.get("top_phrases_all", [])[:8] if p.isascii()]
+    # Last resort: use actual conversation titles instead of hardcoded AI/ML terms
+    if not top_phrases:
+        raw_titles = [t for t in (stats.get("sample_titles") or []) if t and t.isascii()]
+        top_phrases = [t[:40] for t in raw_titles[:4]]
     phrase_list = (
         ", ".join(f'"{p}"' for p in top_phrases)
         if top_phrases
-        else '"LLMs", "RAG", "fine-tuning", "agents"'
+        else "your frequent topics"
     )
 
     img   = stats["image_stats"]
