@@ -1,5 +1,5 @@
 # Core — required for the Gradio web app (app.py)
-gradio>=4.0.0,<7.0.0
+gradio==5.14.0
 pandas>=2.0.0
 plotly>=5.0.0
 reportlab>=4.0.0
