@@ -10,3 +10,13 @@ __pycache__/
 *.log
 outputs/
 .env
+
+# Large test files (don't commit to HuggingFace)
+7355bf43c90816cef81f9ad4bf0b408eecb4388040ba579bd603548a3aafb275*.zip
+security_test_payload.zip
+comprehensive_test.json
+example_conversations.json
+
+# Local development
+.claude/
+APP_STATUS.md
