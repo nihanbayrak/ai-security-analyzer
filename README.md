@@ -1,28 +1,3 @@
----
-title: AI Security Analyzer
-emoji: 🛡️
-colorFrom: indigo
-colorTo: purple
-sdk: gradio
-sdk_version: 5.14.0
-app_file: app.py
-pinned: false
-license: mit
-short_description: Scan your ChatGPT & Claude exports for security threats, PII leaks, & prompt injection
-tags:
-  - security
-  - chatgpt
-  - claude
-  - privacy
-  - prompt-injection
-  - pii-detection
-  - owasp
-  - llm-security
-  - cybersecurity
-  - gdpr
-  - kvkk
----
-
 # 🛡️ AI Security Analyzer
 
 **Find out what's hiding in your ChatGPT & Claude conversations.**
