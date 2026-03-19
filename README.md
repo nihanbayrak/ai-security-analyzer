@@ -140,16 +140,29 @@ Identifies if the LLM is spitting out pre-trained data:
 
 ```text
 .
-├── app.py                      # Main Gradio application interface
-├── main.py                     # CLI entry point
-├── detectors/                  # Core logic & algorithms for threat detection
-│   ├── pii_detector.py         # Personal Identifiable Information logic
-│   ├── prompt_injection.py     # Jailbreak and injection heuristics
-│   ├── anomaly_detector.py     # Statistical & entropy pattern analysis
-│   └── ...
-├── extractors/                 # Parsers for HTML, JSON, Office docs, etc.
-├── generate_pdf_report.py      # PDF rendering logic for the final report
-└── generate_custom_instructions.py # AI persona instruction generation
+├── app.py                      # Main Gradio application
+├── model.py                    # Data models (Finding, Message, etc.)
+├── scoring.py                  # Risk scoring engine
+├── report.py                   # PDF/JSON report generation
+├── ingest.py                   # Secure ZIP extraction
+├── theme.py                    # Dark theme UI
+├── detectors/                  # Threat detection modules
+│   ├── pii.py                  # PII detection (SSN, credit cards, IBAN)
+│   ├── secrets.py              # API keys & credentials (15+ types)
+│   ├── injection.py            # Prompt injection & jailbreaks
+│   ├── dark.py                 # Dark patterns & manipulation
+│   ├── hallucination.py        # AI hallucination detection
+│   └── context_filter.py       # False positive reduction
+├── extractors/                 # Format parsers
+│   ├── common.py               # Auto-detect ChatGPT/Claude format
+│   ├── json_html.py            # ChatGPT parser
+│   └── claude_parser.py        # Claude parser
+├── controllers/                # Validation logic
+│   ├── context_validator.py    # Role-based context validation
+│   ├── credit_card.py          # Luhn algorithm
+│   └── iban.py                 # MOD-97 validation
+└── supervisors/                # LLM supervisor layer
+    └── *.py                    # Domain-specific validators
 ```
 
 ---
@@ -163,7 +176,7 @@ Identifies if the LLM is spitting out pre-trained data:
 ### Setup Instructions
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/ai-security-analyzer.git
+   git clone https://github.com/nihanbayrak/ai-security-analyzer.git
    cd ai-security-analyzer
    ```
 
