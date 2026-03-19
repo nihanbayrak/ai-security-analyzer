@@ -1,22 +1,34 @@
-conversations.json
-security_report_final.json
-security_report.pdf
+# Python
 *.pyc
 __pycache__/
-.DS_Store
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+venv/
+env/
+
+# Temporary files
 *.tmp
 *.log
 outputs/
-.env
 
-# Large test files (don't commit to HuggingFace)
-7355bf43c90816cef81f9ad4bf0b408eecb4388040ba579bd603548a3aafb275*.zip
-security_test_payload.zip
-comprehensive_test.json
-example_conversations.json
-
-# Local development
-.claude/
-APP_STATUS.md
+# Test/example data (don't commit user data)
+*.zip
+*.pdf
+conversations.json
