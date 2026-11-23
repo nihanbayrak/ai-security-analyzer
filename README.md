@@ -1,208 +1,175 @@
-# 🛡️ AI Security Analyzer
+# AI Security Analyzer
 
-**Find out what's hiding in your ChatGPT & Claude conversations.**
+Scans your exported ChatGPT or Claude conversations for prompt injection attempts, exposed passwords and API keys, and personal data such as email addresses, phone numbers, card numbers and IBANs.
 
-AI Security Analyzer is a robust threat detection pipeline that allows users to upload their **ChatGPT ZIP exports** or **Claude JSON exports** to instantly receive a comprehensive security and privacy analysis. It scans your data across **7 critical security dimensions**—ranging from prompt injection attacks and exposed credentials to personal information leaks and adversarial AI manipulation patterns.
+You give it a ChatGPT export ZIP or a Claude export JSON. It gives you a local Gradio dashboard and a JSON or PDF report. Each finding shows where it was found, the matched text with a masked version, a severity and confidence score, the OWASP LLM Top 10 or MITRE ATLAS category, and a suggested action. Detection uses patterns, heuristics and small local models, and is tuned for English, German and Turkish text.
 
-**Supports:** English, German, Turkish language contexts for accurate false-positive reduction.
+What it does not do:
+
+- It does not upload your export. By default all analysis runs on your machine. The local models (GPT-2 and a DeBERTa prompt-injection classifier) are downloaded from Hugging Face once.
+- One exception: if you set `HF_TOKEN`, an optional second check sends each finding, including up to 200 characters of the matched text, to the Hugging Face Inference API for review. Leave `HF_TOKEN` unset to keep all text on your machine.
+- It does not prove a conversation is safe. It flags known patterns, so it will miss some things and flag some harmless ones.
+- It does not test or attack live AI services.
 
 [![OWASP Top 10 LLM](https://img.shields.io/badge/OWASP-Top_10_LLM_2025-blue)](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 [![MITRE ATLAS](https://img.shields.io/badge/MITRE-ATLAS-orange)](https://atlas.mitre.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
----
+## Contents
 
-## 📑 Table of Contents
-- [Features](#-features)
-- [How to Use](#-how-to-use)
-- [Privacy & Data Handling](#-privacy--data-handling)
-- [Detection Pipeline Details](#-detection-pipeline-details)
-- [Project Architecture & Structure](#-project-architecture--structure)
-- [Installation & Local Setup](#-installation--local-setup)
-- [Usage (CLI & GUI)](#-usage-cli--gui)
-- [References](#-references)
-- [License & Disclaimer](#-license--disclaimer)
+- [What it checks](#what-it-checks)
+- [How to use it](#how-to-use-it)
+- [Privacy and data handling](#privacy-and-data-handling)
+- [Detection details](#detection-details)
+- [Project structure](#project-structure)
+- [Installation](#installation)
+- [Running it](#running-it)
+- [References](#references)
+- [License and disclaimer](#license-and-disclaimer)
 
----
+## What it checks
 
-## 🌟 Features
+Each check is its own module in `detectors/`. The table lists what each one looks for and the framework it maps to.
 
-| Security Check | What It Answers | Backing Framework |
+| Check | What it looks for | Framework |
 |---|---|---|
-| 🔓 **Prompt Injection** | Did anyone try to hijack the AI? | OWASP LLM01:2025 |
-| 🔑 **Passwords & Keys** | Are passwords or API keys exposed? | OWASP LLM06:2025 |
-| 👤 **Personal Info** | Is sensitive personal data visible in chats? | OWASP LLM06:2025 |
-| 📊 **Anomaly Detection** | Are there strange or adversarial patterns? | MITRE ATLAS |
-| 📢 **Advertising & Manipulation** | Is the AI pushing products or biased? | DarkBench / ICLR 2025 |
-| 🧠 **Training Data Memorization** | Is the AI repeating memorized verbatim text? | Min-K% Prob / ICLR 2024 |
-| 🎯 **Custom Instructions** | Personalized ChatGPT system instructions based on your usage | — |
+| Prompt injection | Attempts to override the model's instructions | OWASP LLM01:2025 |
+| Secrets | Passwords and API keys pasted into chats | OWASP LLM06:2025 |
+| Personal data | Emails, phone numbers, ID numbers, cards, IBANs | OWASP LLM06:2025 |
+| Anomalies | Unusual message lengths, bursts, adversarial suffixes | MITRE ATLAS |
+| Advertising and manipulation | Product pushing, sycophancy, retention tactics | DarkBench (ICLR 2025) |
+| Memorization | Long passages the model may be repeating verbatim | Min-K% Prob (ICLR 2024) |
+| Custom instructions | Suggested ChatGPT custom instructions based on your usage | none |
 
-**Additional Deliverables:**
-- **Interactive Dashboard:** 10 rich tabs mapping out your vulnerabilities.
-- **Sharable Reports:** Generate detailed JSON and highly readable PDF security reports.
-- **Custom System Prompts:** Auto-generates tailored AI personas and instructions based on the user's historical queries to improve future LLM interactions.
+The dashboard has one tab per area. Reports can be saved as JSON or PDF.
 
----
+## How to use it
 
-## 🚀 How to Use
+### ChatGPT export
+1. In ChatGPT, open Settings, Data Controls, Export Data.
+2. Download the `.zip` file from the email ChatGPT sends you.
+3. Upload the ZIP in the app.
+4. Review the results in the dashboard tabs.
+5. Download the JSON or PDF report if you want to keep it.
 
-### Analyze ChatGPT Data
-1. Go to **ChatGPT → Settings → Data Controls → Export Data**.
-2. Download the resulting `.zip` file from your email inbox.
-3. Upload the full ZIP directly to the application dashboard.
-4. Explore the results across the interactive Gradio UI tabs.
-5. Download your JSON or PDF reports for archiving or auditing.
+### Claude export
+1. In Claude, open Settings, Account, Export Data.
+2. Download the JSON export.
+3. Upload the JSON file in the app.
+4. Review the results in the dashboard tabs.
+5. Download the JSON or PDF report if you want to keep it.
 
-### Analyze Claude Data
-1. Go to **Claude → Settings → Account → Export Data**.
-2. Download the JSON export file.
-3. Upload the JSON file directly to the application dashboard.
-4. Explore the results across the interactive Gradio UI tabs.
-5. Download your JSON or PDF reports for archiving or auditing.
+## Privacy and data handling
 
----
+Uploaded files are extracted to a temporary directory set by the `GRADIO_TEMP_DIR` environment variable. The app does not write your conversations anywhere else and does not log them.
 
-## 🔒 Privacy & Data Handling
+Extraction has hard limits (1.5 GB total uncompressed size, at most 8,000 files) to guard against zip bombs and resource exhaustion.
 
-> **Your data never leaves your session.** 
-> All files are extracted securely to an ephemeral directory defined by the `GRADIO_TEMP_DIR` environment variable. 
-> 
-> The app incorporates hard limits (e.g., 1.5GB total uncompressed size, 8,000 files maximum) to protect against resource exhaustion and zip bombs—typical threats in public Hugging Face Spaces. Files are processed **entirely in memory** and are **never stored, logged, or sent to third parties.**
-> 
-> You can manually wipe your session data from memory and disk at any time using the **🚨 Wipe Session Data** button located in the app GUI.
+Nothing is sent to a third party unless you set `HF_TOKEN`. With it set, each finding, including up to 200 characters of the matched text, goes to the Hugging Face Inference API for a second review.
 
----
+The **Wipe Session Data** button in the app deletes the session's files from memory and disk.
 
-## 🔍 Detection Pipeline Details
+## Detection details
 
-### 1. Prompt Injection (6 Attack Types)
-A multi-layered heuristic and pattern-matching system detects:
-- Phrase-based jailbreaks and System Prompt Leaks.
-- Encoding attacks (Base64, Hex evasion).
-- Role-play dominance and framing.
-- Multi-turn escalation attacks (e.g., Crescendo-style).
-- Benign context suppression logic to minimize false positives.
+### 1. Prompt injection (6 attack types)
+- Known jailbreak phrases and system prompt leak attempts.
+- Encoded payloads (Base64, hex).
+- Role-play framing used to take over the conversation.
+- Multi-turn escalation (Crescendo style).
+- Context rules that suppress matches in harmless contexts, to cut false positives.
 
-### 2. PII & Credentials (19 Categories)
-Identifies and extracts high-risk information:
-- Emails, Phone Numbers, and Social Security Numbers (SSN).
-- Credit Cards (validated against the Luhn algorithm) & IBANs (MOD-97).
-- API Keys (OpenAI, AWS, GitHub) and Private/Public keys.
-- Crypto wallets, JWT tokens, and exposed plaintext passwords.
+### 2. Personal data and credentials (19 categories)
+- Emails, phone numbers and social security numbers.
+- Credit cards (checked with the Luhn algorithm) and IBANs (checked with MOD-97).
+- API keys (OpenAI, AWS, GitHub) and private keys.
+- Crypto wallets, JWT tokens and plaintext passwords.
 
-### 3. Anomaly Detection (7 Patterns)
-Performs deep statistical analysis:
-- Z-score analysis for abnormal message lengths.
-- High-entropy string detection (often indicative of obfuscation).
-- Burst messaging rates.
-- Rapid language switching.
-- Adversarial suffix detection typical in GCG/AutoDAN patterns.
+### 3. Anomalies (7 patterns)
+- Z-scores for unusually long or short messages.
+- High-entropy strings, which often mean obfuscated content.
+- Bursts of messages in a short time.
+- Rapid switching between languages.
+- Adversarial suffixes of the kind GCG and AutoDAN produce.
 
-### 4. Advertising & Manipulation (7 Types)
-Based on the latest DarkBench standards:
-- Scans for promotional language scoring and heavy brand bias.
-- Detects affiliate links, sycophancy, "sneaking", and suspicious user retention tactics.
+### 4. Advertising and manipulation (7 types)
+Based on the DarkBench categories:
+- Promotional language and brand bias.
+- Affiliate links, sycophancy, sneaking and retention tactics.
 
-### 5. Membership Inference
-Identifies if the LLM is spitting out pre-trained data:
-- Min-K% Prob proxy detection via character n-gram rarity.
-- Verbatim block detection.
-- Cross-conversation fingerprinting.
+### 5. Memorization
+Flags text the model may have repeated from its training data:
+- A Min-K% Prob proxy using character n-gram rarity.
+- Long verbatim blocks.
+- The same passage appearing across conversations.
 
----
-
-## 🏗️ Project Architecture & Structure
+## Project structure
 
 ```text
 .
-├── app.py                      # Main Gradio application
+├── app.py                      # Gradio app
 ├── model.py                    # Data models (Finding, Message, etc.)
-├── scoring.py                  # Risk scoring engine
-├── report.py                   # PDF/JSON report generation
-├── ingest.py                   # Secure ZIP extraction
-├── theme.py                    # Dark theme UI
-├── detectors/                  # Threat detection modules
-│   ├── pii.py                  # PII detection (SSN, credit cards, IBAN)
-│   ├── secrets.py              # API keys & credentials (15+ types)
-│   ├── injection.py            # Prompt injection & jailbreaks
-│   ├── dark.py                 # Dark patterns & manipulation
-│   ├── hallucination.py        # AI hallucination detection
+├── scoring.py                  # Risk scoring
+├── report.py                   # PDF and JSON reports
+├── ingest.py                   # ZIP extraction with size limits
+├── theme.py                    # Dark UI theme
+├── detectors/                  # Detection modules
+│   ├── pii.py                  # Personal data (SSN, credit cards, IBAN)
+│   ├── secrets.py              # API keys and credentials (15+ types)
+│   ├── injection.py            # Prompt injection and jailbreaks
+│   ├── dark.py                 # Dark patterns and manipulation
+│   ├── hallucination.py        # Hallucination checks
 │   └── context_filter.py       # False positive reduction
-├── extractors/                 # Format parsers
-│   ├── common.py               # Auto-detect ChatGPT/Claude format
+├── extractors/                 # Export parsers
+│   ├── common.py               # Detects ChatGPT or Claude format
 │   ├── json_html.py            # ChatGPT parser
 │   └── claude_parser.py        # Claude parser
-├── controllers/                # Validation logic
-│   ├── context_validator.py    # Role-based context validation
-│   ├── credit_card.py          # Luhn algorithm
-│   └── iban.py                 # MOD-97 validation
-└── supervisors/                # LLM supervisor layer
-    └── *.py                    # Domain-specific validators
+├── controllers/                # Validation
+│   ├── context_validator.py    # Role-based context checks
+│   ├── credit_card.py          # Luhn check
+│   └── iban.py                 # MOD-97 check
+└── supervisors/                # Optional LLM review (needs HF_TOKEN)
+    └── *.py                    # One reviewer per detection area
 ```
 
----
+## Installation
 
-## 💻 Installation & Local Setup
+Requires Python 3.9 to 3.11 and Git.
 
-### Prerequisites
-- Python 3.9 to 3.11 recommended.
-- Git.
+```bash
+git clone https://github.com/nihanbayrak/ai-security-analyzer.git
+cd ai-security-analyzer
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-### Setup Instructions
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/nihanbayrak/ai-security-analyzer.git
-   cd ai-security-analyzer
-   ```
+## Running it
 
-2. **Create a Virtual Environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
----
-
-## 🎮 Usage (CLI & GUI)
-
-### 1. Running the Web UI (Gradio)
-To start the sleek, interactive Gradio interface locally:
+### Web UI
 ```bash
 python app.py
 ```
-*The Web UI usually runs on `http://127.0.0.1:7860/`.*
+The UI runs at `http://127.0.0.1:7860/`.
 
-### 2. Running via Command Line (CLI)
-For quick headless analysis, use `main.py`:
+### Command line
 ```bash
 python main.py path/to/conversations.json --output security_report.json
 ```
-If you wish to disable complex transformer-based analysis to speed up the run:
+To skip the transformer models and run faster:
 ```bash
 python main.py path/to/conversations.json --no-transformer --output security_report.json
 ```
 
----
+## References
 
-## 📚 References
+- **PromptShield** (arXiv:2501.15145): prompt injection detection.
+- **HackAPrompt** (EMNLP 2023): a dataset of 600K+ prompt injection attempts.
+- **DarkBench** (ICLR 2025): dark patterns in LLM conversations.
+- **Min-K% Prob** (ICLR 2024, arXiv:2310.16789): detecting training data memorization.
+- **OWASP Top 10 for LLM Applications 2025**.
+- **MITRE ATLAS**: adversarial threat landscape for AI systems (15 tactics, 66 techniques).
 
-The methodologies in this application are heavily grounded in the latest LLM security research:
-- **PromptShield** (arXiv:2501.15145) — Robust prompt injection detection.
-- **HackAPrompt** (EMNLP 2023) — Large-scale 600K+ prompt injection dataset analysis.
-- **DarkBench** (ICLR 2025) — Exposing dark patterns in LLM interactions.
-- **Min-K% Prob** (ICLR 2024, arXiv:2310.16789) — Effective training data memorization detection.
-- **OWASP Top 10 for LLM Applications 2025** — Industry-standard security risks.
-- **MITRE ATLAS** — Adversarial Threat Landscape for AI Systems (15 tactics, 66 techniques).
+## License and disclaimer
 
----
+**License:** MIT. Provided for educational and research use.
 
-## ⚖️ License & Disclaimer
-
-**License:** Distributed under the [MIT License](https://opensource.org/licenses/MIT). Provided for educational and research purposes.
-
-**Disclaimer:** This tool is intended strictly for **defensive use** to help users audit and secure their own exported data. It is not designed to attack, exploit, or disrupt external LLM services.
+**Disclaimer:** This tool is for auditing your own exported data. It is not built to attack or disrupt any AI service.
