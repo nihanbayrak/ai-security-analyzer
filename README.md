@@ -170,6 +170,6 @@ python main.py path/to/conversations.json --no-transformer --output security_rep
 
 ## License and disclaimer
 
-**License:** MIT. Provided for educational and research use.
+**License:** MIT, see [LICENSE](LICENSE). Provided for educational and research use.
 
 **Disclaimer:** This tool is for auditing your own exported data. It is not built to attack or disrupt any AI service.
